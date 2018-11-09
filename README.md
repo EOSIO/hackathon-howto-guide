@@ -6,8 +6,6 @@ The EOS.IO software introduces a new blockchain architecture designed to enable 
 
 **Full documentation can be found at [https://developers.eos.io/](https://developers.eos.io/)**
 
-This means your portal is correctly setup for the hackathon.
-
 The purpose of this document is to setup you development environment in an agile manner and prepare you for the development of your project ideas.
 
 Let's start creating a local EOSIO network that is not connected to the public network and will be under your full control. It will simulate a close to real network environment.
