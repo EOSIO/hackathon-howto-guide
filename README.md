@@ -40,7 +40,7 @@ The EOSIO software supports the following environments:
 
 ### Version of EOSIO
 
-For this hackathon we will be using EOSIO v.1.3.2 (based on Docker image eosio/eos-dev:v1.3.2)
+For this hackathon we will be using EOSIO v.1.4.2 (based on Docker image eosio/eos-dev:v1.4.2) and EOSIO.CDT v.1.3.2
 
 ### Command Line Knowledge
 
@@ -322,19 +322,19 @@ Open `example.cpp` file in your editor and paste following code:
 ```cpp
 #include <eosiolib/eosio.hpp>
 #include <eosiolib/print.hpp>
+
 using namespace eosio;
 
-class example : public eosio::contract {
- public:
-     using contract::contract;
+class [[eosio::contract]] example : public contract {
+  public:
+      using contract::contract;
 
-     /// @abi action
-     void hi( account_name user ) {
-             print( "Hello, ", name{user} );
-     }
+      [[eosio::action]]
+      void hi( name user ) {
+         print( "Hello, ", name{user});
+      }
 };
-
-EOSIO_ABI( example, (hi) )
+EOSIO_DISPATCH( example, (hi))
 
 ```
 
@@ -347,52 +347,60 @@ Let's break this contract apart in parts.
 
 This imports standard eosio c++ libraries. More libraries can be found in `eosiolib` folder.
 
-```cpp
-class example : public eosio::contract {
- public:
-     using contract::contract;
+EOSIO contracts extend the contract class. Initialize our parent contract class with the code name of the contract and the receiver. The important parameter here is the code parameter which is the account on the blockchain that the contract is being deployed to.
 
-     /// @abi action
-     void hi( account_name user ) {
-             print( "Hello, ", name{user} );
-     }
+```cpp
+class hello : public contract {
+  public:
+      using contract::contract;
+
+      [[eosio::action]]
+      void hi( name user ) {
+         print( "Hello, ", name{user});
+      }
 };
 ```
 
-This is a standard implementation of a contract structure that has one method called `hi` that takes a `user` parameter of type `account_name`. Then it prints out a name of this user.
+This is a standard implementation of a contract structure that has one method called `hi` that takes a `user` parameter of type `name`. Then it prints out a name of this user.
 
 ```cpp
-EOSIO_ABI( example, (hi) )
+EOSIO_DISPATCH( example, (hi))
 ```
 
-This line exposes the method `hi` to the ABI file. ABI file is like an address book that shows what are the methods and what are their parameters inside smart contract that can be called by your Dapp.
+This line exposes the method `hi` to the ABI file. ABI file is like an address book that shows what are the methods and what are their parameters inside smart contract that can be called by your app.
+
+## EOSIO.CDT
+
+EOSIO.CDT is a toolchain for WebAssembly (WASM) and set of tools to facilitate contract writing and compilation for the EOSIO platform.
+
+EOSIO.CDT currently supports Mac OS X brew, Linux x86_64 Debian packages, and Linux x86_64 RPM packages.
+
+**If you have previously installed EOSIO.CDT, please run the `uninstall` script (it is in the directory where you cloned EOSIO.CDT) before downloading and using the binary releases.**
+
+### Mac OS X Brew Install
+```sh
+$ brew tap eosio/eosio.cdt
+$ brew install https://raw.githubusercontent.com/EOSIO/homebrew-eosio.cdt/50f00447765854f6e4e3b2d4ef36324cc38e5362/eosio.cdt.rb 
+```
+
+For more installation options for other systems please follow a guide here: [https://github.com/EOSIO/eosio.cdt/blob/master/README.md](https://github.com/EOSIO/eosio.cdt/blob/master/README.md)
 
 ## Compile the smart contract
 
-Let's create another handy alias for the smart contract compilator `eosiocpp`. 
+First we need to generate a WASM file. A WASM file is a compiled smart contract ready to be uploded to EOSIO network.
+
+`eosio-cpp` is the WASM compiler and an ABI generator utility. Before uploading the smart contract to the network we need to compile it from C++ to WASM.
 
 ```
-alias eosiocpp='docker exec eosio_notechain_container eosiocpp'
+eosio-cpp -o ~/eosio-project-boilerplate-simple/eosio_docker/contracts/example/example.wasm ~/eosio-project-boilerplate-simple/eosio_docker/contracts/example/example.cpp --abigen --contract example
 ```
 
-The `eosiocpp` tool simplifies the work required to bootstrap a new contract. `eosiocpp` will create the two smart contract files with the basic skeleton to get you started. The skeleton file is the same `.cpp` file for the hello contract covered in the example above.
-
-```
-eosiocpp -n ${contractname}
-```
-
-Next, we need to generate a WASM file. A WASM file is a compiled smart contract ready to be uploded to EOSIO network.
-
-```
-eosiocpp -o /opt/eosio/bin/contracts/example/example.wast /opt/eosio/bin/contracts/example/example.cpp
-```
-
-Please note the path to the files is within Docker container, not your host machine, so please add `/opt/eosio/bin/contracts/` to point to the right contracts folder.
-
-We now need to generate an ABI file:
+Now in the folder `` you will see three files:
 
 ```bash
-eosiocpp -g /opt/eosio/bin/contracts/example/example.abi /opt/eosio/bin/contracts/example/example.cpp
+example.cpp  # this is source code of the example contract
+example.abi  # this is the ABI file - public interface in the smart contract
+example.wasm # this is the compiled WASM file
 ```
 
 Congratulations! You have created your first smart contract! Lets upload this contract to the blockchain:
@@ -536,215 +544,391 @@ Let's create a standard structure for a contract file:
 
 ```cpp
 #include <eosiolib/eosio.hpp>
+#include <eosiolib/print.hpp>
+
+using namespace eosio;
 
 class addressbook : public eosio::contract {
-   public:
+  public:
        
-   private: 
+  private: 
   
 };
 ```
 
-Now let's define a new `struct` that will serve a structure of a row in our table in `private` as a private field:
+Before a table can be configured and instantiated, a struct that represents the data structure of the address book needs to be written. Think of this as a "schema." Since it's an address book, the table will contain people, so create a struct called "person"
 
 ```cpp
-#include <eosiolib/eosio.hpp>
+struct person {};
+```
 
-class addressbook : public eosio::contract {
-   public:
-       
-   private: 
-      struct record {
-         account_name owner; // primary key                                      
-         uint32_t     phone;
-         std::string  fullname;
-         std::string  address;
+When defining the schema for a `multi_index` table, you will require a unique value to use as the primary key.
 
-         uint64_t primary_key() const { return owner; }
-         uint64_t by_phone() const    { return phone; }
-      };
+For this contract, use a field called "key" with type name. This contract will have one unique entry per user, so this key will be a consistent and guaranteed unique value based on the user's name.
+
+```cpp
+struct person {
+	name key;
 };
 ```
 
-Now let's define the table itself and its indices: 
+Since this contract is an address book it probably should store some relevant details for each entry or person.
 
 ```cpp
-   // We setup the table usin multi_index container:
-   typedef eosio::multi_index<N(records), record,
-      eosio::indexed_by<N(byphone), eosio::const_mem_fun<record, uint64_t, &record::by_phone> >
-   > record_table;
-   
-   // Creating the instance of the `record_table` type                                                                             
-   record_table _records;
+struct person {
+  name key;
+  std::string first_name;
+  std::string last_name;
+  std::string street;
+  std::string city;
+  std::string state;
+  uint32_t phone;
+};
+```
+
+Great. The basic schema is now complete. Next, define a `primary_key` method, which will be used by `multi_index` iterators. Every multi_index schema requires a primary key. To accomplish this you simply create a method called `primary_key()` and return a value, in this case, the `key` member as defined in the struct.
+
+
+```cpp
+struct person {
+  name key;
+  std::string first_name;
+  std::string last_name;
+  std::string street;
+  std::string city;
+  std::string state;
+  uint64_t phone;
+
+  uint64_t primary_key() const { return key.value;}
+};
+```
+
+*Note: A table's schema cannot be modified while it has data in it. If you need to make changes to a table's schema in any way, you first need to remove all its rows*
+
+
+Add the `struct` in `private` as a private field:
+
+```cpp
+#include <eosiolib/eosio.hpp>
+#include <eosiolib/print.hpp>
+
+class addressbook : public eosio::contract {
+   public:
+   	using contract::contract;
+       
+   private:
+   	struct person {
+		 name key;
+		 std::string first_name;
+		 std::string last_name;
+		 std::string street;
+		 std::string city;
+		 std::string state;
+		 uint64_t phone;
+		 
+		 uint64_t primary_key() const { return key.value;}
+	};
+};
+```
+
+Now that the schema of the table has been defined with a struct we need to configure the table. The `eosio::multi_index` constructor needs to be named and configured to use the struct we previously defined.
+
+```cpp
+// We setup the table usin multi_index container:
+typedef eosio::multi_index<"people"_n, person> addressbook_type;
 ```
 
 We need to initialize the class in the constructor.
 
 ```cpp
-// We inititialize the class with a constructor and we pass the account_name as a parameter in the constructor
-// this account_name will be set to the account that deploys the contract
-addressbook( account_name s ):
-   contract(s),   // initialization of the base class for the contract
-   _records(s, s) // initialize the table with code and scope NB! Look up definition of code and scope
-{
-}
+// We inititialize the class with a constructor and we pass the name as a parameter in the constructor
+// this name will be set to the account that deploys the contract
+addressbook(name receiver, name code,  datastream<const char*> ds):contract(receiver, code, ds) {}
 ```
 
 Let's sum it all up in one file so far: 
 
 ```cpp
-class addressbook : public eosio::contract {
-   public:
-      addressbook( account_name s ):
-         contract( s ),   // initialization of the base class for the contract
-         _records( s, s ) // initialize the table with code and scope NB! Look up definition of code and scope   
-      {
-      }
-      
-   private:
-      // Setup the struct that represents a row in the table                                                            
-      /// @abi table records                   
-      struct record {
-         account_name owner; // primary key                                      
-         uint32_t     phone;
-         std::string  fullname;
-         std::string  address;
+#include <eosiolib/eosio.hpp>
+#include <eosiolib/print.hpp>
 
-         uint64_t primary_key() const { return owner; }
-         uint64_t by_phone() const    { return phone; }
-      };
+class addressbook : public eosio::contract
+{
+  public:
+    using contract::contract;
+    addressbook(name receiver, name code, datastream<const char *> ds) : contract(receiver, code, ds) {}
 
-      typedef eosio::multi_index< N(records), record,
-         eosio::indexed_by<N(byphone), eosio::const_mem_fun<record, uint64_t, &record::by_phone> >
-      > record_table;
+  private:
+    struct person
+    {
+        name key;
+        std::string first_name;
+        std::string last_name;
+        std::string street;
+        std::string city;
+        std::string state;
 
-      // Creating the instance of the `record_table` type                      
-      record_table _records;
-};
-	
+        uint64_t primary_key() const { return key.value; }
+    };
+
+    typedef eosio::multi_index<"people"_n, person> addressbook_type;
+
+};	
 ```
 
-Now let's create an action that adds a new record in our table: 
+Next, define an action for the user to add or update a record. This action will need to accept any values that this action needs to be able to emplace (create) or modify.
 
 
 ```cpp
-/// @abi action
-void create( account_name owner, uint32_t phone, const std::string& fullname, const std::string& address ) {
-
-   require_auth( owner );
-
-   // _records.end() is in a way similar to null and it means that the value isn't found
-   // uniqueness of primary key is enforced at the library level but we can enforce it in the contract with a
-   // better error message
-   eosio_assert( _records.find( owner ) == _records.end(), "This record already exists in the addressbook" );
-
-   eosio_assert( fullname.size() <= 20, "Full name is too long" );
-   eosio_assert( address.size() <= 50, "Address is too long" );
-
-   // we use phone as a secondary key                                                                                 
-   // secondary key is not necessarily unique, we will enforce its uniqueness in this contract
-   auto idx = _records.get_index<N(byphone)>();
-   eosio_assert( idx.find( phone ) == idx.end(), "Phone number is already taken" );
-
-   _records.emplace( owner, [&]( auto& rcrd ) {
-      rcrd.owner    = owner;
-      rcrd.phone    = phone;
-      rcrd.fullname = fullname;
-      rcrd.address  = address;
-   });
+void upsert(name user, std::string first_name, std::string last_name, std::string street, std::string city, std::string state, uint64_t phone) {
 }
 ```
 
-And we need to expose our function to the ABI: 
+Earlier, it was mentioned that only the user has control over their own record, as this contract is opt-in. To do this, utilize the require_auth method provided by the eosio.cdt. This method accepts one argument, an name type, and asserts that the account executing the transaction equals the provided value.
 
 ```cpp
-EOSIO_ABI( addressbook, (create) )
+void upsert(name user, std::string first_name, std::string last_name, std::string street, std::string city, std::string state, uint64_t phone) {
+ require_auth( user );
+}
 ```
 
-All together and add `remove` and `update` actions: 
+Instantiate the table. Previously, a multi_index table was configured, and declared it as `addressbook_type `. To instantiate a table, consider its two required arguments:
+
+* The `"code"`, which represents the contract's account. This value is accessible through the scoped `_code` variable.
+* The `"scope"` which make sure the uniqueness of the contract. In this case, since we only have one table we can use `"_code"` as well. Important to notice, we are passing `_code.value` that returns `_code` in `unit64_t` as that is what `scope` requires.
+
+```cpp
+void upsert(name user, std::string first_name, std::string last_name, std::string street, std::string city, std::string state, uint64_t phone) {
+  require_auth( user );
+  addressbook_type addresses(_code, _code.value);
+}
+```
+
+Next, query the iterator, setting it to a variable since this iterator will be used several times.
+
+```cpp
+void upsert(name user, std::string first_name, std::string last_name, std::string street, std::string city, std::string state, uint64_t phone) {
+  require_auth( user );
+  addressbook_type addresses(_code, _code.value);
+  auto iterator = addresses.find(user.value);
+}
+```
+
+Now our function needs to actually add or update the record (if it already exists) in the table:
+
+```cpp
+if( iterator == addresses.end() )
+  {
+    //The user isn't in the table
+  }
+  else {
+    //The user is in the table
+  }
+```
+
+If the record doesn't exist, we need to create it. We will use an `emplace` method to do it:
+
+```cpp
+addresses.emplace(user, [&]( auto& row ) {
+    row.key = user;
+    row.first_name = first_name;
+    row.last_name = last_name;
+    row.street = street;
+    row.city = city;
+    row.state = state;
+    row.phone = phone;
+});
+```
+
+If it already exists - we will update it using `modify` method:
+
+```cpp
+addresses.modify(iterator, user, [&]( auto& row ) {
+    row.key = user;
+    row.first_name = first_name;
+    row.last_name = last_name;
+    row.street = street;
+    row.city = city;
+    row.state = state;
+    row.phone = phone
+});
+```
+
+Let's put it all together:
+
+```cpp
+
+#include <eosiolib/eosio.hpp>
+#include <eosiolib/print.hpp>
+
+class addressbook : public eosio::contract
+{
+  public:
+    using contract::contract;
+    addressbook(name receiver, name code, datastream<const char *> ds) : contract(receiver, code, ds) {}
+
+    void upsert(name user, std::string first_name, std::string last_name, std::string street, std::string city, std::string state, uint64_t phone)
+    {
+        require_auth(user);
+        addressbook_type addresses(_code, _code.value);
+        auto iterator = addresses.find(user.value);
+
+        if (iterator == addresses.end())
+        {
+            //The user isn't in the table
+            addresses.emplace(user, [&](auto &row) {
+                row.key = user;
+                row.first_name = first_name;
+                row.last_name = last_name;
+                row.street = street;
+                row.city = city;
+                row.state = state;
+                row.phone = phone;
+            });
+        }
+        else
+        {
+            //The user is in the table
+            addresses.modify(iterator, user, [&](auto &row) {
+                row.key = user;
+                row.first_name = first_name;
+                row.last_name = last_name;
+                row.street = street;
+                row.city = city;
+                row.state = state;
+                row.phone = phone;
+            });
+        }
+    }
+
+  private:
+    struct person
+    {
+        name key;
+        std::string first_name;
+        std::string last_name;
+        std::string street;
+        std::string city;
+        std::string state;
+        uint64_t phone;
+
+        uint64_t primary_key() const { return key.value; }
+    };
+
+    typedef eosio::multi_index<"people"_n, person> addressbook_type;
+
+```
+
+We also may want to add the `erase` method. Please remember it doesn't remove the record from the history, but removes it from the current state of the database, freeing resources if you are on a resource-limited network.
+
+```cpp
+void erase(name user) {
+    require_auth(user);
+    addressbook_type addresses(_code, _code.value);
+    auto iterator = addresses.find(user.value);
+    eosio_assert(iterator != addresses.end(), "Record does not exist");
+    addresses.erase(iterator);
+}
+```
+
+The contract is now mostly complete. Users can create, modify and erase records. However, the contract is not quite ready to be compiled.
+
+At the bottom of the file, utilize the `EOSIO_DISPATCH` macro, passing the name of the contract, and our lone action "upsert".
+
+This macro handles the apply handlers used by wasm to dispatch calls to specific methods in our contract.
+
+Adding the following to the bottom of `addressbook.cpp` will make our `cpp` file compatible with EOSIO's wasm interpreter. Failing to include this declaration may result in an error when deploying the contract.
+
+```cpp
+EOSIO_DISPATCH( addressbook, (upsert)(erase))
+```
+
+## ABI Type Declarations
+
+`eosio.cdt` includes an ABI Generator, but for it to work will require some minor declarations to our contract.
+
+There are three main types of the ABI annotation that you need to use in order for the ABI Generator to recognise relevant functions and export them to the ABI file correctly:
+
+```cpp
+[[eosio::contract]] # This annotation is needed at the contract class definition
+[[eosio::action]] # This annotation is needed on the publicly available functions
+[[eosio::table]] # This annotation is needed for the multi index table structs
+```
+
+The final version of our file will look like this: 
 
 ```cpp
 #include <eosiolib/eosio.hpp>
+#include <eosiolib/print.hpp>
 
-class addressbook : public eosio::contract {
-   public:
-      addressbook( account_name s ):
-         contract( s ),   // initialization of the base class for the contract
-         _records( s, s ) // initialize the table with code and scope NB! Look up definition of code and scope   
-      {
-      }
+using namespace eosio;
 
-      /// @abi action
-      void create( account_name owner, uint32_t phone, const std::string& fullname, const std::string& address ) {
+class [[eosio::contract]] addressbook : public eosio::contract {
 
-         require_auth( owner );
+public:
+  using contract::contract;
+  
+  addressbook(name receiver, name code,  datastream<const char*> ds): contract(receiver, code, ds) {}
 
-         // _records.end() is in a way similar to null and it means that the value isn't found
-         // uniqueness of primary key is enforced at the library level but we can enforce it in the contract with a
-         // better error message
-         eosio_assert( _records.find( owner ) == _records.end(), "This record already exists in the addressbook" );
+  [[eosio::action]]
+  void upsert(name user, std::string first_name, std::string last_name, std::string street, std::string city, std::string state, uint64_t phone) {
+    require_auth( user );
+    addressbook_type addresses(_code, _code.value);
+    auto iterator = addresses.find(user.value);
+    if( iterator == addresses.end() )
+    {
+      addresses.emplace(user, [&]( auto& row ) {
+       row.key = user;
+       row.first_name = first_name;
+       row.last_name = last_name;
+       row.street = street;
+       row.city = city;
+       row.state = state;
+       row.phone = phone;
+      });
+    }
+    else {
+      std::string changes;
+      addresses.modify(iterator, user, [&]( auto& row ) {
+        row.key = user;
+        row.first_name = first_name;
+        row.last_name = last_name;
+        row.street = street;
+        row.city = city;
+        row.state = state;
+        row.phone = phone;
+      });
+    }
+  }
 
-         eosio_assert( fullname.size() <= 20, "Full name is too long" );
-         eosio_assert( address.size() <= 50, "Address is too long" );
+  [[eosio::action]]
+  void erase(name user) {
+    require_auth(user);
 
-         // we use phone as a secondary key                                                                                 
-         // secondary key is not necessarily unique, we will enforce its uniqueness in this contract
-         auto idx = _records.get_index<N(byphone)>();
-         eosio_assert( idx.find( phone ) == idx.end(), "Phone number is already taken" );
+    addressbook_type addresses(_self, _code.value);
 
-         _records.emplace( owner, [&]( auto& rcrd ) {
-            rcrd.owner    = owner;
-            rcrd.phone    = phone;
-            rcrd.fullname = fullname;
-            rcrd.address  = address;
-         });
-      }
+    auto iterator = addresses.find(user.value);
+    eosio_assert(iterator != addresses.end(), "Record does not exist");
+    addresses.erase(iterator);
+  }
 
-      /// @abi action
-      void remove( account_name owner ) {
+private:
+  struct [[eosio::table]] person {
+    name key;
+    std::string first_name;
+    std::string last_name;
+    std::string street;
+    std::string city;
+    std::string state;
+    uint64_t phone;
+    uint64_t primary_key() const { return key.value; }
 
-         require_auth( owner );
+  };
+  typedef eosio::multi_index<"people"_n, person> addressbook_type;
 
-         auto itr = _records.find( owner );
-         eosio_assert( itr != _records.end(), "Record does not exit" );
-         _records.erase( itr );
-      }
-
-      /// @abi action                                               
-      void update( account_name owner, const std::string& address ) {
-
-         require_auth( owner );
-
-         auto itr = _records.find( owner );
-         eosio_assert( itr != _records.end(), "Record does not exit" );
-         eosio_assert( address.size() <= 50, "Address is too long" );
-         _records.modify( itr, owner, [&]( auto& rcrd ) {
-            rcrd.address = address;
-         });
-      }
-
-   private:
-      // Setup the struct that represents a row in the table                                                            
-      /// @abi table records                   
-      struct record {
-         account_name owner; // primary key                                      
-         uint32_t     phone;
-         std::string  fullname;
-         std::string  address;
-
-         uint64_t primary_key() const { return owner; }
-         uint64_t by_phone() const    { return phone; }
-      };
-
-      typedef eosio::multi_index< N(records), record,
-         eosio::indexed_by<N(byphone), eosio::const_mem_fun<record, uint64_t, &record::by_phone> >
-      > record_table;
-
-      // Creating the instance of the `record_table` type                      
-      record_table _records;
 };
 
-EOSIO_ABI( addressbook, (create)(remove)(update) )
+EOSIO_DISPATCH( addressbook, (upsert)(erase))
 ```
 
 Awesome, we have our table! Let's test it now.
@@ -770,21 +954,22 @@ cleos create account eosio addressbook **PUBLICKEY3** **PUBLICKEY4**
 Now we need to compile and upload the smart contract:
 
 ```bash
-eosiocpp -o /opt/eosio/bin/contracts/addressbook/addressbook.wasm /opt/eosio/bin/contracts/addressbook/addressbook.cpp
-eosiocpp -g /opt/eosio/bin/contracts/addressbook/addressbook.abi /opt/eosio/bin/contracts/addressbook/addressbook.cpp
+eosio-cpp -o ~/eosio-project-boilerplate-simple/eosio_docker/contracts/addressbook/addressbook.wasm ~/eosio-project-boilerplate-simple/eosio_docker/contracts/addressbook/addressbook.cpp --abigen --contract addressbook
+
+# notice we are using the path to the contract inside the container, not the local path
 cleos set contract addressbook /opt/eosio/bin/contracts/addressbook -p addressbook@active
 ```
 
 And let's add `khaled` to the database: 
 
 ```bash
-cleos push action addressbook create '["khaled", 332233, "Khaled A", "Springfield"]' -p khaled
+cleos push action addressbook upsert '["khaled", "Khaled A", "Hass", "Springfield St", "San Francisco", "CA", 123456]' -p khaled
 ```
 
-Looks good! Am I in?
+Looks good! Is Khaled in?
 
 ```bash
-cleos get table addressbook addressbook records
+cleos get table addressbook addressbook people
 ```
 
 The result should look like this: 
@@ -792,31 +977,37 @@ The result should look like this:
 ```json
 {
   "rows": [{
-      "owner": "khaled",
-      "phone": 332233,
-      "fullname": "Khaled A",
-      "address": "Springfield"
+      "key": "khaled",
+      "first_name": "Khaled A",
+      "last_name": "Hass",
+      "street": "Springfield St",
+      "city": "San Francisco",
+      "state": "CA",
+      "phone": 123456
     }
   ],
   "more": false
 }
 ```
 
-What if we now need to update the address?
+What if we now need to update the first name?
 
 ```bash
-cleos push action addressbook update '["khaled", "Quahog"]' -p khaled
+cleos push action addressbook upsert '["khaled", "Josh", "Hass", "Springfield St", "San Francisco", "CA", 123456]' -p khaled
 ```
 
-You should get the following result:
+You should get the following result by repeating the last cleos command:
 
 ```json
 {
   "rows": [{
-      "owner": "khaled",
-      "phone": 332233,
-      "fullname": "Khaled A",
-      "address": "Quahog"
+      "key": "khaled",
+      "first_name": "Josh",
+      "last_name": "Hass",
+      "street": "Springfield St",
+      "city": "San Francisco",
+      "state": "CA",
+      "phone": 123456
     }
   ],
   "more": false
