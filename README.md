@@ -690,7 +690,7 @@ void upsert(name user, std::string first_name, std::string last_name, std::strin
 }
 ```
 
-Instantiate the table. Previously, a multi_index table was configured, and declared it as `addressbook_type `. To instantiate a table, consider its two required arguments:
+Instantiate the table. Previously, a `multi_index table` was configured, and declared it as `addressbook_type `. To instantiate a table, consider its two required arguments:
 
 * The `"code"`, which represents the contract's account. This value is accessible through the scoped `_code` variable.
 * The `"scope"` which make sure the uniqueness of the contract. In this case, since we only have one table we can use `"_code"` as well. Important to notice, we are passing `_code.value` that returns `_code` in `unit64_t` as that is what `scope` requires.
