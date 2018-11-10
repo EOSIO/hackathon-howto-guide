@@ -38,7 +38,7 @@ The EOSIO software supports the following environments:
 
 ### Version of EOSIO
 
-For this hackathon we will be using EOSIO v.1.4.2 (based on Docker image eosio/eos-dev:v1.4.2) and EOSIO.CDT v.1.3.2
+For this hackathon we will be using EOSIO v.1.4.2 (based on Docker image eosio/eos:v1.4.2) and EOSIO.CDT v.1.3.2
 
 ### Command Line Knowledge
 
