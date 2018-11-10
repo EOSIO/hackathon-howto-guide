@@ -575,11 +575,9 @@ Since this contract is an address book it probably should store some relevant de
 ```cpp
 struct person {
   name key;
-  std::string first_name;
-  std::string last_name;
+  std::string full_name;
   std::string street;
   std::string city;
-  std::string state;
   uint32_t phone;
 };
 ```
@@ -590,12 +588,10 @@ Great. The basic schema is now complete. Next, define a `primary_key` method, wh
 ```cpp
 struct person {
   name key;
-  std::string first_name;
-  std::string last_name;
+  std::string full_name;
   std::string street;
   std::string city;
-  std::string state;
-  uint64_t phone;
+  uint32_t phone;
 
   uint64_t primary_key() const { return key.value;}
 };
@@ -617,12 +613,10 @@ class addressbook : public eosio::contract {
    private:
    	struct person {
 		 name key;
-		 std::string first_name;
-		 std::string last_name;
+		 std::string full_name;
 		 std::string street;
 		 std::string city;
-		 std::string state;
-		 uint64_t phone;
+		 uint32_t phone;
 		 
 		 uint64_t primary_key() const { return key.value;}
 	};
@@ -660,11 +654,9 @@ class addressbook : public eosio::contract
     struct person
     {
         name key;
-        std::string first_name;
-        std::string last_name;
+        std::string full_name;
         std::string street;
         std::string city;
-        std::string state;
 
         uint64_t primary_key() const { return key.value; }
     };
@@ -678,14 +670,14 @@ Next, define an action for the user to add or update a record. This action will 
 
 
 ```cpp
-void upsert(name user, std::string first_name, std::string last_name, std::string street, std::string city, std::string state, uint64_t phone) {
+void upsert(name user, std::string full_name, std::string street, std::string city, uint32_t phone) {
 }
 ```
 
 Earlier, it was mentioned that only the user has control over their own record, as this contract is opt-in. To do this, utilize the require_auth method provided by the eosio.cdt. This method accepts one argument, an name type, and asserts that the account executing the transaction equals the provided value.
 
 ```cpp
-void upsert(name user, std::string first_name, std::string last_name, std::string street, std::string city, std::string state, uint64_t phone) {
+void upsert(name user, std::string full_name, std::string street, std::string city, uint32_t phone) {
  require_auth( user );
 }
 ```
@@ -696,7 +688,7 @@ Instantiate the table. Previously, a `multi_index table` was configured, and dec
 * The `"scope"` which make sure the uniqueness of the contract. In this case, since we only have one table we can use `"_code"` as well. Important to notice, we are passing `_code.value` that returns `_code` in `unit64_t` as that is what `scope` requires.
 
 ```cpp
-void upsert(name user, std::string first_name, std::string last_name, std::string street, std::string city, std::string state, uint64_t phone) {
+void upsert(name user, std::string full_name, std::string street, std::string city, uint32_t phone) {
   require_auth( user );
   addressbook_type addresses(_code, _code.value);
 }
@@ -705,8 +697,11 @@ void upsert(name user, std::string first_name, std::string last_name, std::strin
 Next, query the iterator, setting it to a variable since this iterator will be used several times.
 
 ```cpp
-void upsert(name user, std::string first_name, std::string last_name, std::string street, std::string city, std::string state, uint64_t phone) {
+void upsert(name user, std::string full_name, std::string street, std::string city, uint32_t phone) {
   require_auth( user );
+  eosio_assert(full_name.size() <= 30, "Full name is too long");
+  eosio_assert(street.size() <= 30, "Street name is too long");
+  eosio_assert(city.size() <= 20, "City name is too long");
   addressbook_type addresses(_code, _code.value);
   auto iterator = addresses.find(user.value);
 }
@@ -729,11 +724,9 @@ If the record doesn't exist, we need to create it. We will use an `emplace` meth
 ```cpp
 addresses.emplace(user, [&]( auto& row ) {
     row.key = user;
-    row.first_name = first_name;
-    row.last_name = last_name;
+    row.full_name = full_name;
     row.street = street;
     row.city = city;
-    row.state = state;
     row.phone = phone;
 });
 ```
@@ -743,11 +736,9 @@ If it already exists - we will update it using `modify` method:
 ```cpp
 addresses.modify(iterator, user, [&]( auto& row ) {
     row.key = user;
-    row.first_name = first_name;
-    row.last_name = last_name;
+    row.full_name = full_name;
     row.street = street;
     row.city = city;
-    row.state = state;
     row.phone = phone
 });
 ```
@@ -765,9 +756,12 @@ class addressbook : public eosio::contract
     using contract::contract;
     addressbook(name receiver, name code, datastream<const char *> ds) : contract(receiver, code, ds) {}
 
-    void upsert(name user, std::string first_name, std::string last_name, std::string street, std::string city, std::string state, uint64_t phone)
+    void upsert(name user, std::string full_name, std::string street, std::string city, uint32_t phone)
     {
         require_auth(user);
+        eosio_assert(full_name.size() <= 30, "Full name is too long");
+        eosio_assert(street.size() <= 30, "Street name is too long");
+        eosio_assert(city.size() <= 20, "City name is too long");
         addressbook_type addresses(_code, _code.value);
         auto iterator = addresses.find(user.value);
 
@@ -776,11 +770,9 @@ class addressbook : public eosio::contract
             //The user isn't in the table
             addresses.emplace(user, [&](auto &row) {
                 row.key = user;
-                row.first_name = first_name;
-                row.last_name = last_name;
+                row.full_name = full_name;
                 row.street = street;
                 row.city = city;
-                row.state = state;
                 row.phone = phone;
             });
         }
@@ -789,11 +781,9 @@ class addressbook : public eosio::contract
             //The user is in the table
             addresses.modify(iterator, user, [&](auto &row) {
                 row.key = user;
-                row.first_name = first_name;
-                row.last_name = last_name;
+                row.full_name = full_name;
                 row.street = street;
                 row.city = city;
-                row.state = state;
                 row.phone = phone;
             });
         }
@@ -803,12 +793,10 @@ class addressbook : public eosio::contract
     struct person
     {
         name key;
-        std::string first_name;
-        std::string last_name;
+        std::string full_name;
         std::string street;
         std::string city;
-        std::string state;
-        uint64_t phone;
+        uint32_t phone;
 
         uint64_t primary_key() const { return key.value; }
     };
@@ -869,7 +857,7 @@ public:
   addressbook(name receiver, name code,  datastream<const char*> ds): contract(receiver, code, ds) {}
 
   [[eosio::action]]
-  void upsert(name user, std::string first_name, std::string last_name, std::string street, std::string city, std::string state, uint64_t phone) {
+  void upsert(name user, std::string full_name, std::string street, std::string city, uint32_t phone) {
     require_auth( user );
     addressbook_type addresses(_code, _code.value);
     auto iterator = addresses.find(user.value);
@@ -877,11 +865,9 @@ public:
     {
       addresses.emplace(user, [&]( auto& row ) {
        row.key = user;
-       row.first_name = first_name;
-       row.last_name = last_name;
+       row.full_name = full_name;
        row.street = street;
        row.city = city;
-       row.state = state;
        row.phone = phone;
       });
     }
@@ -889,11 +875,9 @@ public:
       std::string changes;
       addresses.modify(iterator, user, [&]( auto& row ) {
         row.key = user;
-        row.first_name = first_name;
-        row.last_name = last_name;
+        row.full_name = full_name;
         row.street = street;
         row.city = city;
-        row.state = state;
         row.phone = phone;
       });
     }
@@ -913,12 +897,10 @@ public:
 private:
   struct [[eosio::table]] person {
     name key;
-    std::string first_name;
-    std::string last_name;
+    std::string full_name;
     std::string street;
     std::string city;
-    std::string state;
-    uint64_t phone;
+    uint32_t phone;
     uint64_t primary_key() const { return key.value; }
 
   };
@@ -961,7 +943,7 @@ cleos set contract addressbook /opt/eosio/bin/contracts/addressbook -p addressbo
 And let's add `khaled` to the database: 
 
 ```bash
-cleos push action addressbook upsert '["khaled", "Khaled A", "Hass", "Springfield St", "San Francisco", "CA", 123456]' -p khaled
+cleos push action addressbook upsert '["khaled", "Khaled A", "Springfield St", "San Francisco, CA", 123456]' -p khaled
 ```
 
 Looks good! Is Khaled in?
@@ -976,11 +958,9 @@ The result should look like this:
 {
   "rows": [{
       "key": "khaled",
-      "first_name": "Khaled A",
-      "last_name": "Hass",
+      "full_name": "Khaled A",
       "street": "Springfield St",
-      "city": "San Francisco",
-      "state": "CA",
+      "city": "San Francisco, CA",
       "phone": 123456
     }
   ],
@@ -991,7 +971,7 @@ The result should look like this:
 What if we now need to update the first name?
 
 ```bash
-cleos push action addressbook upsert '["khaled", "Josh", "Hass", "Springfield St", "San Francisco", "CA", 123456]' -p khaled
+cleos push action addressbook upsert '["khaled", "Khaled A", "Market St", "San Francisco, CA", 123456]' -p khaled
 ```
 
 You should get the following result by repeating the last cleos command:
@@ -1000,11 +980,9 @@ You should get the following result by repeating the last cleos command:
 {
   "rows": [{
       "key": "khaled",
-      "first_name": "Josh",
-      "last_name": "Hass",
-      "street": "Springfield St",
-      "city": "San Francisco",
-      "state": "CA",
+      "full_name": "Khaled A",
+      "street": "Market St",
+      "city": "San Francisco, CA",
       "phone": 123456
     }
   ],
