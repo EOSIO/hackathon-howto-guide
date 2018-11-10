@@ -657,6 +657,7 @@ class addressbook : public eosio::contract
         std::string full_name;
         std::string street;
         std::string city;
+	uint32_t phone;
 
         uint64_t primary_key() const { return key.value; }
     };
